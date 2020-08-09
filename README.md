@@ -52,6 +52,13 @@ $ minikube kubectl config get-clusters
 NAME
 minikube
 ```
+## Enable minikube ingress controller
+```
+$ minikube addons enable ingress
+🔎  Verifying ingress addon...
+🌟  The 'ingress' addon is enabled
+```
+
 
 ## Install Helm
 ```
@@ -100,4 +107,95 @@ NAME                                    READY   STATUS    RESTARTS   AGE
 vault-0                                 0/1     Running   0          3m16s
 vault-agent-injector-7d8b64b8d4-89lj8   1/1     Running   0          3m16s
 ```
+## Enable Vault UI
+```
+ $ cat override-values.yaml 
+ui:
+  enabled: true
+  serviceType: NodePort
+```
+```
+$ helm install vault hashicorp/vault --values override-values.yaml
+```
+
+## Create Ingress for Vault Service
+```
+$ kubectl apply -f vault-ingress.yaml
+service/vault-external created
+```
+```
+$ kubectl get ingress
+NAME    CLASS    HOSTS            ADDRESS          PORTS   AGE
+vault   <none>   vault.my.local   192.168.99.105   80      100m
+```
+```
+$ sudo echo "192.168.99.105 vault.my.local" >> /etc/hosts
+```
+## Initialize Vault
+Set Vault Server address:
+```
+export VAULT_ADDR="http://vault.my.local"
+```
+```
+$ vault status
+---                -----
+Seal Type          shamir
+Initialized        true
+Sealed             true
+Total Shares       0
+Threshold          0
+Unseal Progress    0/0
+Unseal Nonce       n/a
+Version            1.4.2
+HA Enabled         false
+```
+Initialize Vault with one key share and one key threshold.
+```
+vault operator init -key-shares=1 -key-threshold=1 -format=json > ~/cluster-keys.json
+```
+**Warning** : _This is for test environment only_
+
+## Unseal Vault
+Display the Unseal Key:
+```
+$ cat cluster-keys.json | jq -r ".unseal_keys_b64[]"
+<THIS WILL OUTPUT THE UNSEAL KEY>
+```
+Set Unseal Key to environment variable:
+```
+$ VAULT_UNSEAL_KEY=$(cat ~/cluster-keys.json | jq -r ".unseal_keys_b64[]")
+```
+Unseal Vault:
+```
+$ vault operator unseal $VAULT_UNSEAL_KEY
+Key             Value
+---             -----
+Seal Type       shamir
+Initialized     true
+Sealed          false
+Total Shares    1
+Threshold       1
+Version         1.4.2
+Cluster Name    vault-cluster-224182e3
+Cluster ID      1b0cfa08-0428-fb81-1986-12023544baf4
+HA Enabled      false
+```
+
+## Login to Vault
+Display root token:
+```
+$ cat cluster-keys.json | jq -r ".root_token"
+```
+```
+$ vault login
+Token (will be hidden): 
+<ENTER THE ROOT TOKEN HERE>
+```
+
+
+
+
+
+
+
 
