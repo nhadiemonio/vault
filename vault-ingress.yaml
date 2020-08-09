@@ -1,0 +1,14 @@
+kind: Ingress
+apiVersion: extensions/v1beta1
+metadata:
+  name: vault
+  namespace: default
+spec:
+  rules:
+    - host: vault.my.local
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: vault
+              servicePort: 8200
